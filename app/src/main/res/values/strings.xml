@@ -2,4 +2,7 @@
 <resources>
     <string name="default_text">--</string>
     <string name="app_name">HeartRateMonitor</string>
+    <string name="LoadConfig">LoadConfig</string>
+    <string name="LoadKeyFile">LoadKeyFile</string>
+    <string name="SendToGC">SendToGC</string>
 </resources>

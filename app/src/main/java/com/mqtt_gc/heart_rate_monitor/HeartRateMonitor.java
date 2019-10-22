@@ -1,15 +1,22 @@
 package com.mqtt_gc.heart_rate_monitor;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.charset.Charset;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.res.Configuration;
 import android.hardware.Camera;
 import android.hardware.Camera.PreviewCallback;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.os.PowerManager.WakeLock;
@@ -17,9 +24,17 @@ import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.TextView;
 
+import com.google.gson.FieldNamingPolicy;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+import org.apache.commons.io.IOUtils;
 import org.eclipse.paho.client.mqttv3.MqttException;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 
 /**
@@ -79,9 +94,10 @@ public class HeartRateMonitor extends Activity {
         image = findViewById(R.id.image);
         text = (TextView) findViewById(R.id.text);
 
+        /*
         this.mqttc = new MqttClientGoogleCloud(getResources(),R.raw.ec_private);
         try {
-            this.mqttc.mqttconnect();
+             this.mqttc.mqttconnect();
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         } catch (IOException e) {
@@ -93,7 +109,7 @@ public class HeartRateMonitor extends Activity {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-
+*/
         PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
         wakeLock = pm.newWakeLock(PowerManager.FULL_WAKE_LOCK, "DoNotDimScreen");
     }
@@ -218,6 +234,7 @@ public class HeartRateMonitor extends Activity {
                 }
                 int beatsAvg = (beatsArrayAvg / beatsArrayCnt);
                 text.setText(String.valueOf(beatsAvg));
+                /*
                 try {
                     mqttc.mqttpublish(String.valueOf(beatsAvg));
                 } catch (MqttException e) {
@@ -231,6 +248,7 @@ public class HeartRateMonitor extends Activity {
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
+                 */
                 startTime = System.currentTimeMillis();
                 beats = 0;
             }
@@ -295,5 +313,46 @@ public class HeartRateMonitor extends Activity {
         }
 
         return result;
+    }
+
+    public void performFileSearch(View view) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        startActivityForResult(intent, 13);
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode,
+                                 Intent resultData) {
+        Uri uri = null;
+        InputStream inputStream = null;
+        String config =null;
+        MqttOptions config_json = new MqttOptions();
+
+        Gson gson = new GsonBuilder()
+                .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+                .create();
+
+        if (requestCode == 13 && resultCode == Activity.RESULT_OK) {
+            if (resultData != null) {
+                    uri = resultData.getData();
+                try {
+                    inputStream =  getContentResolver().openInputStream(uri);
+                } catch (FileNotFoundException ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }
+        try {
+            config = IOUtils.toString(inputStream, "UTF-8");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        config_json = gson.fromJson(config,MqttOptions.class);
+        EditText edittext = (EditText) findViewById(R.id.editText3);
+        edittext.setText(config_json.projectId + " " + config_json.deviceId);
+
     }
 }
