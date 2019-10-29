@@ -18,3 +18,4 @@ You need to provide config file to the app in the following json format
 "messageType": "event"
 }
 `
+This also required EC Key file, which you can generate using instructions [over here](https://cloud.google.com/iot/docs/how-tos/credentials/keys)
