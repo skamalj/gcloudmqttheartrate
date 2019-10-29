@@ -4,6 +4,7 @@ The code is based on heartrate app at https://github.com/phishman3579/android-he
 
 This app catures the value provided by phishman's app and send it to google cloud IOT. This code is taken from samples provided by google.
 
+## Config File
 You need to provide config file to the app in the following json format
 
 `
@@ -18,4 +19,5 @@ You need to provide config file to the app in the following json format
 "messageType": "event"
 }
 `
+## Key File
 This also required EC Key file, which you can generate using instructions [over here](https://cloud.google.com/iot/docs/how-tos/credentials/keys)
