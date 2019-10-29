@@ -21,3 +21,6 @@ You need to provide config file to the app in the following json format
 `
 ## Key File
 This also required EC Key file, which you can generate using instructions [over here](https://cloud.google.com/iot/docs/how-tos/credentials/keys)
+
+##
+Place you finger on the camera (not flash) after you have connected to GC
