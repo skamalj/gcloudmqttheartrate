@@ -3,13 +3,9 @@ package com.mqtt_gc.heart_rate_monitor;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.charset.Charset;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -26,15 +22,12 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
-
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-
 import org.apache.commons.io.IOUtils;
 import org.eclipse.paho.client.mqttv3.MqttException;
-import org.json.JSONException;
-import org.json.JSONObject;
+
 
 
 /**
@@ -59,6 +52,9 @@ public class HeartRateMonitor extends Activity {
     private static int averageIndex = 0;
     private static final int averageArraySize = 4;
     private static final int[] averageArray = new int[averageArraySize];
+    private static MqttOptions mqttconfigoptions = null;
+    private static byte[] prvtkeybytes = null;
+    private static EditText logwindow = null;
 
     public static enum TYPE {
         GREEN, RED
@@ -93,25 +89,39 @@ public class HeartRateMonitor extends Activity {
 
         image = findViewById(R.id.image);
         text = (TextView) findViewById(R.id.text);
+        logwindow = (EditText) findViewById(R.id.editText3);
 
-        /*
-        this.mqttc = new MqttClientGoogleCloud(getResources(),R.raw.ec_private);
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        wakeLock = pm.newWakeLock(PowerManager.FULL_WAKE_LOCK, "hr:DoNotDimScreen");
+
+    }
+
+    public void connectMqtt(View view) {
+        if (mqttconfigoptions == null  || prvtkeybytes == null) {
+            logwindow.setText("Load both configuration and keyfile \n" +  logwindow.getText());
+            return;
+        }
+        this.mqttc = new MqttClientGoogleCloud(mqttconfigoptions, prvtkeybytes);
+        logwindow.setText("Client created \n"  + logwindow.getText());
         try {
              this.mqttc.mqttconnect();
+            logwindow.setText("Client connected \n"  + logwindow.getText());
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
+            logwindow.setText(e.getMessage());
         } catch (IOException e) {
             e.printStackTrace();
+            logwindow.setText(e.getMessage());
         } catch (InvalidKeySpecException e) {
             e.printStackTrace();
+            logwindow.setText(e.getMessage());
         } catch (MqttException e) {
             e.printStackTrace();
+            logwindow.setText(e.getMessage());
         } catch (InterruptedException e) {
             e.printStackTrace();
+            logwindow.setText(e.getMessage());
         }
-*/
-        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        wakeLock = pm.newWakeLock(PowerManager.FULL_WAKE_LOCK, "DoNotDimScreen");
     }
 
     /**
@@ -158,6 +168,9 @@ public class HeartRateMonitor extends Activity {
          */
         @Override
         public void onPreviewFrame(byte[] data, Camera cam) {
+            if (mqttconfigoptions == null  || prvtkeybytes == null || mqttc == null) {
+                return;
+            }
             if (data == null) throw new NullPointerException();
             Camera.Size size = cam.getParameters().getPreviewSize();
             if (size == null) throw new NullPointerException();
@@ -234,21 +247,28 @@ public class HeartRateMonitor extends Activity {
                 }
                 int beatsAvg = (beatsArrayAvg / beatsArrayCnt);
                 text.setText(String.valueOf(beatsAvg));
-                /*
                 try {
-                    mqttc.mqttpublish(String.valueOf(beatsAvg));
+                    if (mqttc != null ) {
+                        mqttc.mqttpublish(String.valueOf(beatsAvg));
+                        logwindow.setText("Sending heartrate value: " + String.valueOf(beatsAvg) + "\n" + logwindow.getText());
+                    }
                 } catch (MqttException e) {
                     e.printStackTrace();
+                    logwindow.setText(e.getMessage());
                 } catch (NoSuchAlgorithmException e) {
                     e.printStackTrace();
+                    logwindow.setText(e.getMessage());
                 } catch (InvalidKeySpecException e) {
                     e.printStackTrace();
+                    logwindow.setText(e.getMessage());
                 } catch (IOException e) {
                     e.printStackTrace();
+                    logwindow.setText(e.getMessage());
                 } catch (InterruptedException e) {
                     e.printStackTrace();
+                    logwindow.setText(e.getMessage());
                 }
-                 */
+
                 startTime = System.currentTimeMillis();
                 beats = 0;
             }
@@ -267,7 +287,7 @@ public class HeartRateMonitor extends Activity {
                 camera.setPreviewDisplay(previewHolder);
                 camera.setPreviewCallback(previewCallback);
             } catch (Throwable t) {
-                Log.e("PreviewDemo-surfaceCallback", "Exception in setPreviewDisplay()", t);
+                Log.e("PreviewDemo-Callback", "Exception in setPreviewDisplay()", t);
             }
         }
 
@@ -315,44 +335,63 @@ public class HeartRateMonitor extends Activity {
         return result;
     }
 
-    public void performFileSearch(View view) {
+    public void loadConfigData(View view) {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("*/*");
         startActivityForResult(intent, 13);
     }
 
+    public void loadPrivateKey(View view) {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        startActivityForResult(intent, 14);
+    }
+
     @Override
     public void onActivityResult(int requestCode, int resultCode,
                                  Intent resultData) {
-        Uri uri = null;
-        InputStream inputStream = null;
-        String config =null;
-        MqttOptions config_json = new MqttOptions();
-
-        Gson gson = new GsonBuilder()
-                .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
-                .create();
 
         if (requestCode == 13 && resultCode == Activity.RESULT_OK) {
             if (resultData != null) {
-                    uri = resultData.getData();
+                Gson gson = new GsonBuilder()
+                        .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
+                        .create();
+                Uri uri = resultData.getData();
                 try {
-                    inputStream =  getContentResolver().openInputStream(uri);
-                } catch (FileNotFoundException ex) {
-                    ex.printStackTrace();
+                    InputStream inputStream =  getContentResolver().openInputStream(uri);
+                    String config = IOUtils.toString(inputStream, "UTF-8");
+                    mqttconfigoptions = gson.fromJson(config,MqttOptions.class);
+                    logwindow.setText(gson.toJson(mqttconfigoptions) + "\n" + logwindow.getText());
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                    logwindow.setText(e.getMessage());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    logwindow.setText(e.getMessage());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    logwindow.setText("Invalid config file : " + e.getMessage());
                 }
             }
         }
-        try {
-            config = IOUtils.toString(inputStream, "UTF-8");
-        } catch (IOException e) {
-            e.printStackTrace();
+
+        if (requestCode == 14 && resultCode == Activity.RESULT_OK) {
+            if (resultData != null) {
+                Uri uri = resultData.getData();
+                try {
+                    InputStream inputStream =  getContentResolver().openInputStream(uri);
+                    prvtkeybytes = IOUtils.toByteArray(inputStream);
+                    logwindow.setText("Key file loaded\n" + logwindow.getText());
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                    logwindow.setText(e.getMessage());
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                    logwindow.setText("Invalid Key file : " + ex.getMessage());
+                }
+            }
         }
-
-        config_json = gson.fromJson(config,MqttOptions.class);
-        EditText edittext = (EditText) findViewById(R.id.editText3);
-        edittext.setText(config_json.projectId + " " + config_json.deviceId);
-
     }
 }

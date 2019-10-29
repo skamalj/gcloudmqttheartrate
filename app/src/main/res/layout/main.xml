@@ -34,27 +34,29 @@
 		android:layout_height="49dp"
 		android:orientation="horizontal">
 
-		<Button
-			android:id="@+id/button2"
-			android:layout_width="18dp"
-			android:layout_height="wrap_content"
-			android:layout_weight="1"
-			android:onClick="performFileSearch"
-			android:text="@string/LoadConfig" />
+        <Button
+            android:id="@+id/button2"
+            android:layout_width="18dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:onClick="loadConfigData"
+            android:text="@string/LoadConfig" />
 
-		<Button
-			android:id="@+id/button3"
-			android:layout_width="wrap_content"
-			android:layout_height="wrap_content"
-			android:layout_weight="1"
-			android:text="@string/LoadKeyFile" />
+        <Button
+            android:id="@+id/button3"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:onClick="loadPrivateKey"
+            android:text="@string/LoadKeyFile" />
 
-		<Button
-			android:id="@+id/button4"
-			android:layout_width="wrap_content"
-			android:layout_height="wrap_content"
-			android:layout_weight="1"
-			android:text="@string/SendToGC" />
+        <Button
+            android:id="@+id/button4"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:onClick="connectMqtt"
+            android:text="@string/SendToGC" />
 
 	</LinearLayout>
 

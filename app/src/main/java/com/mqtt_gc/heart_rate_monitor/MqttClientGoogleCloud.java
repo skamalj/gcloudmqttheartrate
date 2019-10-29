@@ -1,21 +1,20 @@
 package com.mqtt_gc.heart_rate_monitor;
 
 import android.content.res.Resources;
-import android.view.View;
 
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.TimerTask;
 
-import org.apache.commons.io.IOUtils;
 import org.joda.time.DateTime;
 
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
@@ -34,19 +33,18 @@ public class MqttClientGoogleCloud {
     private static Boolean  tokenrefreshed;
     private static Resources resources;
     private static MqttOptions options;
-    private static int keyfile;
+    private static byte[] keyfile;
 
-    public MqttClientGoogleCloud(Resources resources, int keyfile) {
+    public MqttClientGoogleCloud(MqttOptions mqttoptions, byte[] keybytes) {
         System.out.println("Creating MqttClientGoogleCloud instance");
-        MqttClientGoogleCloud.resources = resources;
-        options = MqttOptions.fromFlags(null);
+        options = mqttoptions;
         this.createTokenRefreshTimer();
         try {
             mqttclient = this.getMqttClient();
         } catch (MqttException e) {
             e.printStackTrace();
         }
-        MqttClientGoogleCloud.keyfile = keyfile;
+        keyfile = keybytes;
     }
     private void createTokenRefreshTimer() {
         Timer timer = new Timer();
@@ -72,9 +70,7 @@ public class MqttClientGoogleCloud {
                         .setIssuedAt(now.toDate())
                         .setExpiration(now.plusMinutes(60).toDate())
                         .setAudience(projectId);
-        InputStream inputStream = resources.openRawResource(keyfile);
-        byte[] keyBytes = IOUtils.toByteArray(inputStream);
-        PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
+        PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyfile);
         KeyFactory kf = KeyFactory.getInstance("EC");
         tokenrefreshed = Boolean.TRUE;
         return jwtBuilder.signWith(SignatureAlgorithm.ES256, kf.generatePrivate(spec)).compact();
@@ -141,10 +137,14 @@ public class MqttClientGoogleCloud {
         attachCallback(this, options.deviceId);
     }
 
-    public void mqttpublish(String payload)
+    public void mqttpublish(String heartrate)
             throws MqttException, NoSuchAlgorithmException,InvalidKeySpecException, IOException, InterruptedException {
         String subTopic = options.messageType.equals("event") ? "events" : options.messageType;
         String mqttTopic = String.format("/devices/%s/%s", options.deviceId, subTopic);
+        Map<String, String> payloadjson = new HashMap<String, String>();
+        payloadjson.put("user",options.username);
+        payloadjson.put("hr",heartrate);
+        String payload = payloadjson.toString();
         if (tokenrefreshed) {
             System.out.print("Token is still current...");
             MqttMessage message = new MqttMessage(payload.getBytes());
